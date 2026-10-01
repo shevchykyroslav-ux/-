@@ -1,0 +1,179 @@
+import asyncio
+import os
+import time
+from datetime import datetime
+
+import speech_recognition as sr
+import edge_tts
+import pygame
+
+
+# ============================================================
+# НАСТРОЙКИ
+# ============================================================
+
+VOICE = "ru-RU-DmitryNeural"
+
+BASE_DIR = os.path.dirname(os.path.abspath(file))
+VOICE_FILE = os.path.join(BASE_DIR, "jarvis_voice.mp3")
+
+
+# ============================================================
+# ИНИЦИАЛИЗАЦИЯ
+# ============================================================
+
+pygame.mixer.init()
+
+recognizer = sr.Recognizer()
+recognizer.energy_threshold = 300
+recognizer.dynamic_energy_threshold = True
+
+
+# ============================================================
+# ГОЛОС JARVIS
+# ============================================================
+
+async def generate_voice(text):
+    communicate = edge_tts.Communicate(text, VOICE)
+    await communicate.save(VOICE_FILE)
+
+
+def speak(text):
+    print(f"JARVIS: {text}")
+
+    try:
+        asyncio.run(generate_voice(text))
+
+        pygame.mixer.music.load(VOICE_FILE)
+        pygame.mixer.music.play()
+
+        while pygame.mixer.music.get_busy():
+            time.sleep(0.05)
+
+        pygame.mixer.music.unload()
+
+    except Exception as error:
+        print(f"Ошибка голоса: {error}")
+
+
+# ============================================================
+# РАСПОЗНАВАНИЕ РЕЧИ
+# ============================================================
+
+def listen():
+    try:
+        with sr.Microphone() as source:
+            audio = recognizer.listen(
+                source,
+                timeout=None,
+                phrase_time_limit=6
+            )
+
+        text = recognizer.recognize_google(
+            audio,
+            language="ru-RU"
+        )
+
+        return text.lower()
+
+    except sr.UnknownValueError:
+        return ""
+
+    except sr.RequestError as error:
+        print(f"Ошибка распознавания: {error}")
+        return ""
+
+    except Exception as error:
+        print(f"Ошибка микрофона: {error}")
+        return ""
+
+
+# ============================================================
+# ЗАПУСК
+# ============================================================
+
+print("=" * 55)
+print("                 J.A.R.V.I.S.")
+print("=" * 55)
+print("Система запущена.")
+print("Скажи «Джарвис», чтобы активировать.")
+print("Для выхода нажми Ctrl+C.")
+print("=" * 55)
+
+
+# ============================================================
+# КАЛИБРОВКА МИКРОФОНА
+# ============================================================
+
+with sr.Microphone() as source:
+    print("\nКалибровка микрофона...")
+    recognizer.adjust_for_ambient_noise(source, duration=1)
+    print("Микрофон готов.")
+
+
+# ============================================================
+# ГЛАВНЫЙ ЦИКЛ
+# ============================================================
+
+while True:
+
+    try:
+        print("\n[ ОЖИДАНИЕ ]")
+
+        text = listen()
+
+        if not text:
+            continue
+
+        print(f"Ты: {text}")
+
+        # ====================================================
+        # АКТИВАЦИЯ JARVIS
+        # ====================================================
+
+        if "джарвис" not in text:
+            continue
+
+        speak("Слушаю.")
+
+        print("[ СЛУШАЮ КОМАНДУ ]")
+
+        command = listen()
+
+        if not command:
+            speak("Я не расслышал.")
+            continue
+
+        print(f"Команда: {command}")
+
+        # ====================================================
+        # КОМАНДЫ
+        # ====================================================
+
+        if "привет" in command:
+            speak("Здравствуйте. Рад вас слышать.")
+
+        elif "как дела" in command:
+            speak("Все системы работают нормально.")
+
+        elif "который час" in command:
+            current_time = datetime.now().strftime("%H:%M")
+            speak(f"Сейчас {current_time}.")
+
+        elif "сколько времени" in command:
+            current_time = datetime.now().strftime("%H:%M")
+            speak(f"Сейчас {current_time}.")
+
+	elif "стоп" in command or "отмена" in command:
+            speak("Хорошо.")
+
+        else:
+            speak("Я пока не знаю эту команду.")
+
+    except KeyboardInterrupt:
+        print("\nJARVIS выключен.")
+        break
+
+    except Exception as error:
+        print(f"Неожиданная ошибка: {error}")
+        time.sleep(1)
